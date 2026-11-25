@@ -1,0 +1,23 @@
+
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Android Studio
+.idea/
+*.iml
+
+# Configuración local del SDK
+local.properties
+
+# Archivos compilados
+*.apk
+*.aab
+
+# Logs
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
