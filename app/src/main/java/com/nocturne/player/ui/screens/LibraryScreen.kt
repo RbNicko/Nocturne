@@ -15,6 +15,7 @@ import com.nocturne.player.data.AudioTrack
 import com.nocturne.player.data.ArtistInfo
 import com.nocturne.player.data.AlbumInfo
 import com.nocturne.player.ui.components.SongItem
+import com.nocturne.player.data.FavoriteEntity
 import com.nocturne.player.ui.theme.*
 import androidx.compose.foundation.lazy.LazyListState
 
@@ -23,6 +24,8 @@ fun LibraryScreen(
     tracks: List<AudioTrack>,
     artists: List<ArtistInfo>,
     albums: List<AlbumInfo>,
+    favoriteTracks: List<FavoriteEntity>,
+    onTrackFavoriteClick: (AudioTrack) -> Unit,
     isLoading: Boolean,
     hasPermission: Boolean,
     searchText: String,
@@ -279,7 +282,14 @@ fun LibraryScreen(
                                 SongItem(
                                     title = track.title,
                                     artist = track.artist,
-                                    symbol = "♫"
+                                    symbol = "♫",
+                                    format = track.audioFormat,
+                                    isFavorite = favoriteTracks.any {
+                                        it.itemId == track.id.toString()
+                                    },
+                                    onFavoriteClick = {
+                                        onTrackFavoriteClick(track)
+                                    }
                                 )
                             }
                         }

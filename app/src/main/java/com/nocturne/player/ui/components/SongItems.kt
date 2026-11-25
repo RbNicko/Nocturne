@@ -4,22 +4,33 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
 import com.nocturne.player.ui.theme.*
 
 @Composable
-    fun SongItem(
-        title: String,
-        artist: String,
-        symbol: String,
-        onClick: () -> Unit = {}
-    ) {
+fun SongItem(
+    title: String,
+    artist: String,
+    symbol: String,
+    onClick: () -> Unit = {},
+    format: String? = null,
+    isFavorite: Boolean? = null,
+    onFavoriteClick: (() -> Unit)? = null,
+    onMoreClick: (() -> Unit)? = null
+) {
 
     Row(
         modifier = Modifier
@@ -38,7 +49,6 @@ import com.nocturne.player.ui.theme.*
                 ),
             contentAlignment = Alignment.Center
         ) {
-
             Text(
                 text = symbol,
                 color = Accent,
@@ -49,27 +59,65 @@ import com.nocturne.player.ui.theme.*
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
         ) {
 
             Text(
                 text = title,
                 color = TextPrimary,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
             Text(
                 text = artist,
                 color = TextSecondary,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
+
+            if (format != null) {
+                Text(
+                    text = format.uppercase(),
+                    color = TextSecondary,
+                    fontSize = 10.sp,
+                    maxLines = 1
+                )
+            }
         }
 
-        Text(
-            text = "•••",
-            color = TextSecondary,
-            fontSize = 19.sp
-        )
+        if (isFavorite != null && onFavoriteClick != null) {
+            IconButton(
+                onClick = onFavoriteClick
+            ) {
+                Icon(
+                    imageVector = if (isFavorite) {
+                        Icons.Filled.Favorite
+                    } else {
+                        Icons.Filled.FavoriteBorder
+                    },
+                    contentDescription = if (isFavorite) {
+                        "Quitar de favoritos"
+                    } else {
+                        "Agregar a favoritos"
+                    },
+                    tint = if (isFavorite) Accent else TextSecondary
+                )
+            }
+        }
+
+        IconButton(
+            onClick = { onMoreClick?.invoke() }
+        ) {
+            Icon(
+                imageVector = Icons.Filled.MoreVert,
+                contentDescription = "Más opciones",
+                tint = TextSecondary
+            )
+        }
     }
 }

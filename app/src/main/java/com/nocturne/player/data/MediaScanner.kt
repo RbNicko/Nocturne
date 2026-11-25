@@ -105,10 +105,8 @@ suspend fun loadAudioTracks(
                 "audio/ogg" -> "OGG"
                 "audio/wav", "audio/x-wav" -> "WAV"
                 "audio/alac" -> "ALAC"
-                "audio/mp4" -> "MP4"
-                else -> mimeType
-                    ?.substringAfter("/")
-                    ?.uppercase()
+                "audio/mp4", "audio/x-m4a" -> "M4A"
+                else -> mimeType?.substringAfter("/")?.uppercase()
             }
 
             val audioQuality = when (audioFormat) {

@@ -87,6 +87,10 @@ fun NocturneApp() {
         .observeFavoritesByType("album")
         .collectAsState(initial = emptyList())
 
+        val favoriteTracks by audioRepository
+        .observeFavoritesByType("track")
+        .collectAsState(initial = emptyList())
+
     val coroutineScope = rememberCoroutineScope()
 
     var tracks by remember {
@@ -276,6 +280,32 @@ Scaffold(
                     listState = libraryListState,
                     artists = artists,
                     albums = albums,
+
+                    favoriteTracks = favoriteTracks,
+
+                    onTrackFavoriteClick = { track ->
+                        val trackId = track.id.toString()
+
+                        val alreadyFavorite = favoriteTracks.any {
+                            it.itemId == trackId
+                        }
+
+                        coroutineScope.launch {
+                            if (alreadyFavorite) {
+                                audioRepository.removeFavorite("track", trackId)
+                            } else {
+                                audioRepository.addFavorite(
+                                    FavoriteEntity(
+                                        type = "track",
+                                        itemId = trackId,
+                                        title = track.title,
+                                        artist = track.artist
+                                    )
+                                )
+                            }
+                        }
+                    },
+
                     onArtistClick = { artist ->
                         selectedArtist = artist
                     },
@@ -303,7 +333,6 @@ Scaffold(
                                 tracks = audioRepository.scanAndSaveTracks(context)
                                 artists = audioRepository.getArtists()
                                 albums = audioRepository.getAlbums()
-
                             } finally {
                                 isLoading = false
                             }
@@ -311,7 +340,6 @@ Scaffold(
                     },
                     modifier = Modifier.padding(padding)
                 )
-
                 // AJUSTES
 
                 2 -> SettingsScreen(
