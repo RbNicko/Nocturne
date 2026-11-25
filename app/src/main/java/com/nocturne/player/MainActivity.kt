@@ -76,6 +76,10 @@ fun NocturneApp() {
     mutableStateOf<AlbumInfo?>(null)
     }
 
+    var favoriteAlbums by remember {
+    mutableStateOf<Set<String>>(emptySet())
+    }
+
     val context = LocalContext.current
 
     val audioRepository = remember(context) {
@@ -203,6 +207,22 @@ Scaffold(
                     onBack = {
                         selectedAlbum = null
                     },
+                    onShuffle = {
+                        // Reproducción aleatoria del álbum
+                    },
+                    onPlay = {
+                        // Reproducción del álbum desde el inicio
+                    },
+                    onFavorite = {
+                        val albumKey = "${selectedAlbum!!.artist}_${selectedAlbum!!.title}"
+
+                        favoriteAlbums = if (albumKey in favoriteAlbums) {
+                            favoriteAlbums - albumKey
+                        } else {
+                            favoriteAlbums + albumKey
+                        }
+                    },
+                    isFavorite = "${selectedAlbum!!.artist}_${selectedAlbum!!.title}" in favoriteAlbums,
                     modifier = Modifier.padding(padding)
                 )
 

@@ -3,8 +3,13 @@ package com.nocturne.player.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.Alignment
@@ -21,6 +26,10 @@ import com.nocturne.player.ui.theme.*
 fun AlbumDetailScreen(
     album: AlbumInfo,
     onBack: () -> Unit,
+    onShuffle: () -> Unit,
+    onPlay: () -> Unit,
+    onFavorite: () -> Unit,
+    isFavorite: Boolean,
     modifier: Modifier = Modifier
 ) {
 
@@ -98,11 +107,108 @@ fun AlbumDetailScreen(
 
                     Spacer(modifier = Modifier.height(22.dp))
 
+
                     // DETALLES DEL ÁLBUM
 
-                    // Los cuatro detalles se añadirán aquí.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AlbumMetadataItem(
+                            value = album.genre ?: "—",
+                            modifier = Modifier.weight(1f)
+                        )
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                        AlbumMetadataItem(
+                            value = album.year?.toString() ?: "—",
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        AlbumMetadataItem(
+                            value = album.audioQuality,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        AlbumMetadataItem(
+                            value = album.audioFormat,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+    // BOTONES DEL ÁLBUM
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        // ALEATORIO
+
+        FilledIconButton(
+            onClick = onShuffle,
+            modifier = Modifier.size(48.dp),
+            shape = CircleShape,
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = SurfaceDark,
+                contentColor = TextPrimary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Shuffle,
+                contentDescription = "Reproducción aleatoria",
+                modifier = Modifier.size(23.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(28.dp))
+
+        // REPRODUCIR
+
+        FilledIconButton(
+            onClick = onPlay,
+            modifier = Modifier.size(60.dp),
+            shape = CircleShape,
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = TextPrimary,
+                contentColor = Background
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Reproducir álbum",
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(28.dp))
+
+        // FAVORITO
+
+        FilledIconButton(
+            onClick = onFavorite,
+            modifier = Modifier.size(48.dp),
+            shape = CircleShape,
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = SurfaceDark,
+                contentColor = TextPrimary
+            )
+        ) {
+            Icon(
+                imageVector = if (isFavorite) {
+                    Icons.Filled.Favorite
+                } else {
+                    Icons.Filled.FavoriteBorder
+                },
+                contentDescription = "Favorito",
+                modifier = Modifier.size(23.dp)
+            )
+        }
+    }
+        Spacer(modifier = Modifier.height(28.dp))
 
                     // LISTA DE CANCIONES
 
@@ -142,4 +248,20 @@ fun AlbumDetailScreen(
             }
         }
     }
+}
+
+@Composable
+private fun AlbumMetadataItem(
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = value,
+        color = TextPrimary,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        modifier = modifier
+    )
 }
