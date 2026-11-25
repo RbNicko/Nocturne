@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
 
 class AudioRepository(
     context: Context
@@ -11,6 +12,7 @@ class AudioRepository(
 
     private val database = DatabaseProvider.getDatabase(context)
     private val audioDao = database.audioDao()
+    private val favoriteDao = database.favoriteDao()
 
     private fun AudioEntity.toAudioTrack(): AudioTrack =
         AudioTrack(
@@ -71,6 +73,34 @@ class AudioRepository(
 
             LibraryOrganizer.getAlbums(tracks)
         }
+
+
+    suspend fun addFavorite(favorite: FavoriteEntity) =
+        withContext(Dispatchers.IO) {
+            favoriteDao.addFavorite(favorite)
+        }
+
+    suspend fun removeFavorite(
+        type: String,
+        itemId: String
+    ) =
+        withContext(Dispatchers.IO) {
+            favoriteDao.removeFavorite(type, itemId)
+        }
+
+    fun observeFavoritesByType(
+        type: String
+    ): Flow<List<FavoriteEntity>> =
+        favoriteDao.observeFavoritesByType(type)
+
+    fun observeIsFavorite(
+        type: String,
+        itemId: String
+    ): Flow<Boolean> =
+        favoriteDao.observeIsFavorite(type, itemId)
+
+    fun observeAllFavorites(): Flow<List<FavoriteEntity>> =
+        favoriteDao.observeAllFavorites()
 
 
     suspend fun scanAndSaveTracks(context: Context): List<AudioTrack> =

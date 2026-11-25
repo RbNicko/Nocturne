@@ -19,7 +19,8 @@ object DatabaseProvider {
             )
                 .addMigrations(
                 MIGRATION_1_2,
-                MIGRATION_2_3
+                MIGRATION_2_3,
+                MIGRATION_3_4
                 )
 
                 .build()

@@ -27,6 +27,7 @@ import com.nocturne.player.data.AudioTrack
 import com.nocturne.player.data.ArtistInfo
 import com.nocturne.player.data.AlbumInfo
 import com.nocturne.player.data.AudioRepository
+import com.nocturne.player.data.FavoriteEntity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Alignment
@@ -42,7 +43,7 @@ import com.nocturne.player.ui.screens.ArtistDetailScreen
 import com.nocturne.player.ui.screens.AlbumDetailScreen
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.flow.collect
 
 
 class MainActivity : ComponentActivity() {
@@ -76,15 +77,15 @@ fun NocturneApp() {
     mutableStateOf<AlbumInfo?>(null)
     }
 
-    var favoriteAlbums by remember {
-    mutableStateOf<Set<String>>(emptySet())
-    }
-
     val context = LocalContext.current
 
     val audioRepository = remember(context) {
         AudioRepository(context.applicationContext)
     }
+
+    val favoriteAlbums by audioRepository
+        .observeFavoritesByType("album")
+        .collectAsState(initial = emptyList())
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -214,16 +215,38 @@ Scaffold(
                         // Reproducción del álbum desde el inicio
                     },
                     onFavorite = {
-                        val albumKey = "${selectedAlbum!!.artist}_${selectedAlbum!!.title}"
+                        selectedAlbum?.let { album ->
 
-                        favoriteAlbums = if (albumKey in favoriteAlbums) {
-                            favoriteAlbums - albumKey
-                        } else {
-                            favoriteAlbums + albumKey
+                            val albumId =
+                                "album:${album.artist.trim().lowercase()}|${album.title.trim().lowercase()}"
+
+                            val alreadyFavorite = favoriteAlbums.any {
+                                it.itemId == albumId
+                            }
+
+                            coroutineScope.launch {
+                                if (alreadyFavorite) {
+                                    audioRepository.removeFavorite(
+                                        type = "album",
+                                        itemId = albumId
+                                    )
+                                } else {
+                                    audioRepository.addFavorite(
+                                        FavoriteEntity(
+                                            type = "album",
+                                            itemId = albumId,
+                                            title = album.title,
+                                            artist = album.artist
+                                        )
+                                    )
+                                }
+                            }
                         }
                     },
-                    isFavorite = "${selectedAlbum!!.artist}_${selectedAlbum!!.title}" in favoriteAlbums,
-                    modifier = Modifier.padding(padding)
+                    isFavorite = favoriteAlbums.any {
+                        it.itemId ==
+                            "album:${selectedAlbum!!.artist.trim().lowercase()}|${selectedAlbum!!.title.trim().lowercase()}"
+                    },
                 )
 
             } else if (selectedArtist != null) {
