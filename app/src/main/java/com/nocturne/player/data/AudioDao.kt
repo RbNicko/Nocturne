@@ -17,6 +17,14 @@ abstract class AudioDao() {
 
     @Query("""
         SELECT * FROM audio_tracks
+        WHERE id IN (:trackIds)
+    """)
+    abstract suspend fun getTracksByIds(
+        trackIds: List<Long>
+        ): List<AudioEntity>
+
+    @Query("""
+        SELECT * FROM audio_tracks
         WHERE COALESCE(NULLIF(albumArtist, ''), artist) = :artistName
         ORDER BY album COLLATE NOCASE ASC, discNumber ASC, trackNumber ASC
     """)

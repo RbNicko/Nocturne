@@ -16,7 +16,7 @@ android {
         targetSdk = 36
 
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.0-pre-alpha.001"
     }
 
     buildTypes {
@@ -60,4 +60,10 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    // Motor de reproducción
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+
+    // Sesión multimedia y reproducción en segundo plano
+    implementation("androidx.media3:media3-session:1.11.1")
 }

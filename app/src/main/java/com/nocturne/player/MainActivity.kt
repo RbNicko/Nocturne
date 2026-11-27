@@ -23,11 +23,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.activity.compose.BackHandler
 import com.nocturne.player.data.AudioTrack
 import com.nocturne.player.data.ArtistInfo
 import com.nocturne.player.data.AlbumInfo
 import com.nocturne.player.data.AudioRepository
 import com.nocturne.player.data.FavoriteEntity
+import com.nocturne.player.data.RankedTrack
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.Alignment
@@ -41,6 +43,7 @@ import com.nocturne.player.ui.screens.LibraryScreen
 import com.nocturne.player.ui.screens.SettingsScreen
 import com.nocturne.player.ui.screens.ArtistDetailScreen
 import com.nocturne.player.ui.screens.AlbumDetailScreen
+import com.nocturne.player.ui.screens.ArtistSongsScreen
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
@@ -77,10 +80,51 @@ fun NocturneApp() {
     mutableStateOf<AlbumInfo?>(null)
     }
 
+    var showArtistSongs by remember {
+    mutableStateOf(false)
+    }
+
     val context = LocalContext.current
+
+    var playbackConnected by remember {
+        mutableStateOf(false)
+    }
+
+    var pendingPlayback by remember {
+        mutableStateOf<(() -> Unit)?>(null)
+    }
+
+    val playbackController = remember(context) {
+        PlaybackController(context.applicationContext) {
+            playbackConnected = true
+
+            pendingPlayback?.invoke()
+            pendingPlayback = null
+        }
+    }
+
+    DisposableEffect(playbackController) {
+        onDispose {
+            playbackController.release()
+        }
+    }
 
     val audioRepository = remember(context) {
         AudioRepository(context.applicationContext)
+    }
+
+    // ESTADO DEL TOP 15
+
+    var selectedTopPeriod by remember {
+        mutableIntStateOf(0)
+    }
+
+    var topTracks by remember {
+        mutableStateOf<List<RankedTrack>>(emptyList())
+    }
+
+    var isTopLoading by remember {
+        mutableStateOf(false)
     }
 
     val favoriteAlbums by audioRepository
@@ -92,6 +136,33 @@ fun NocturneApp() {
         .collectAsState(initial = emptyList())
 
     val coroutineScope = rememberCoroutineScope()
+
+    fun playAlbum(shuffle: Boolean) {
+    val album = selectedAlbum ?: return
+
+    val request: () -> Unit = {
+        coroutineScope.launch {
+            val albumTracks = audioRepository.getTracksByAlbum(
+                albumName = album.title,
+                artistName = album.artist
+            )
+
+            if (albumTracks.isNotEmpty()) {
+                playbackController.playTracks(
+                    tracks = albumTracks,
+                    startIndex = 0,
+                    shuffle = shuffle
+                )
+            }
+        }
+    }
+
+    if (playbackConnected) {
+        request()
+    } else {
+        pendingPlayback = request
+    }
+}
 
     var tracks by remember {
         mutableStateOf<List<AudioTrack>>(emptyList())
@@ -137,6 +208,28 @@ fun NocturneApp() {
             hasPermission = granted
         }
 
+    // CARGA DEL TOP 15
+
+    LaunchedEffect(selectedTab, selectedTopPeriod) {
+
+        if (selectedTab == 0) {
+
+            isTopLoading = true
+
+            try {
+                topTracks = when (selectedTopPeriod) {
+                    0 -> audioRepository.getTopDailyTracks()
+                    1 -> audioRepository.getTopWeeklyTracks()
+                    2 -> audioRepository.getTopMonthlyTracks()
+                    3 -> audioRepository.getTopYearlyTracks()
+                    else -> audioRepository.getTopAllTimeTracks()
+                }
+            } finally {
+                isTopLoading = false
+            }
+        }
+    }
+
     // CARGA DE BIBLIOTECA
 
     LaunchedEffect(selectedTab, hasPermission, hasLoadedLibrary) {
@@ -164,27 +257,31 @@ fun NocturneApp() {
         }
     }
 
-            BackHandler(
-                enabled = selectedAlbum != null ||
-                        selectedArtist != null ||
-                        selectedTab != 0
-            ) {
-                when {
-                    selectedAlbum != null -> {
-                        selectedAlbum = null
-                    }
+        BackHandler(
+            enabled = selectedAlbum != null ||
+                    showArtistSongs ||
+                    selectedArtist != null ||
+                    selectedTab != 0
+        ) {
+            when {
+                selectedAlbum != null -> {
+                    selectedAlbum = null
+                }
 
-                    selectedArtist != null -> {
-                        selectedArtist = null
-                    }
+                showArtistSongs && selectedArtist != null -> {
+                    showArtistSongs = false
+                }
 
-                    else -> {
-                        selectedTab = 0
-                    }
+                selectedArtist != null -> {
+                    selectedArtist = null
+                    showArtistSongs = false
+                }
+
+                selectedTab != 0 -> {
+                    selectedTab = 0
                 }
             }
-
-
+        }
     MaterialTheme(
         colorScheme = darkColorScheme(
             background = Background,
@@ -213,10 +310,10 @@ Scaffold(
                         selectedAlbum = null
                     },
                     onShuffle = {
-                        // Reproducción aleatoria del álbum
+                        playAlbum(shuffle = true)
                     },
                     onPlay = {
-                        // Reproducción del álbum desde el inicio
+                        playAlbum(shuffle = false)
                     },
                     onFavorite = {
                         selectedAlbum?.let { album ->
@@ -253,12 +350,28 @@ Scaffold(
                     },
                 )
 
+            } else if (selectedArtist != null && showArtistSongs) {
+
+                ArtistSongsScreen(
+                    artist = selectedArtist!!,
+                    tracks = tracks,
+                    onBack = {
+                        showArtistSongs = false
+                    },
+                    modifier = Modifier.padding(padding)
+                )
+
             } else if (selectedArtist != null) {
 
                 ArtistDetailScreen(
                     artist = selectedArtist!!,
+                    tracks = tracks,
                     onBack = {
                         selectedArtist = null
+                        showArtistSongs = false
+                    },
+                    onViewMore = {
+                        showArtistSongs = true
                     },
                     modifier = Modifier.padding(padding)
                 )
@@ -270,6 +383,10 @@ Scaffold(
                 // INICIO
 
                 0 -> HomeScreen(
+                    topTracks = topTracks,
+                    selectedTopPeriod = selectedTopPeriod,
+                    onTopPeriodChange = { selectedTopPeriod = it },
+                    isTopLoading = isTopLoading,
                     modifier = Modifier.padding(padding)
                 )
 
@@ -307,8 +424,10 @@ Scaffold(
                     },
 
                     onArtistClick = { artist ->
+                        showArtistSongs = false
                         selectedArtist = artist
                     },
+
                     onAlbumClick = { album ->
                         selectedAlbum = album
                     },
@@ -350,7 +469,11 @@ Scaffold(
 
         // CÁPSULA FLOTANTE
 
-        if (selectedArtist == null && selectedAlbum == null) {
+            if (
+                selectedArtist == null &&
+                selectedAlbum == null &&
+                !showArtistSongs
+            ) {
 
             Box(
                 modifier = Modifier

@@ -68,4 +68,40 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
                     )
                 """.trimIndent())
             }
-        }
+       }
+
+
+val MIGRATION_4_5 = object : Migration(4, 5) {  
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS play_stats (
+                trackId INTEGER NOT NULL,
+                playCount INTEGER NOT NULL DEFAULT 0,
+                lastPlayed INTEGER,
+                PRIMARY KEY(trackId)
+            )
+        """.trimIndent())
+    }
+}
+
+val MIGRATION_5_6 = object : Migration(5, 6) {
+
+    override fun migrate(db: SupportSQLiteDatabase) {
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS daily_play_stats (
+                trackId INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                playCount INTEGER NOT NULL,
+                PRIMARY KEY(trackId, date)
+            )
+        """.trimIndent())
+
+        db.execSQL("""
+            CREATE INDEX IF NOT EXISTS index_daily_play_stats_date
+            ON daily_play_stats(date)
+        """.trimIndent())
+    }
+}

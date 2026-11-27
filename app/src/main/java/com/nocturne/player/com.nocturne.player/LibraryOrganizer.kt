@@ -10,7 +10,7 @@ object LibraryOrganizer {
         "(?i)\\s+(?:feat\\.?|ft\\.?|featuring)\\s+|\\s*&\\s*|\\s+x\\s*|,\\s*"
     )
 
-    private fun getMainArtist(track: AudioTrack): String {
+    fun getMainArtist(track: AudioTrack): String {
 
         return track.albumArtist
             ?.takeIf { it.isNotBlank() }

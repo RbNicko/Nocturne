@@ -13,15 +13,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
 import com.nocturne.player.data.ArtistInfo
+import com.nocturne.player.data.AudioTrack
+import com.nocturne.player.data.LibraryOrganizer
+import com.nocturne.player.ui.components.SongItem
 import com.nocturne.player.ui.theme.*
 
 @Composable
 fun ArtistDetailScreen(
     artist: ArtistInfo,
+    tracks: List<AudioTrack>,
     onBack: () -> Unit,
+    onViewMore: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+
+    val artistTracks = tracks.filter {
+    LibraryOrganizer.getMainArtist(it)
+        .equals(artist.name, ignoreCase = true)
+}
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -32,38 +43,34 @@ fun ArtistDetailScreen(
 
             // BANNER DEL ARTISTA
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                ) {
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .background(
-                                SurfaceDark,
-                                RoundedCornerShape(
-                                    bottomStart = 24.dp,
-                                    bottomEnd = 24.dp
-                                )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to SurfaceDark,
+                                0.45f to SurfaceDark,
+                                1.0f to Background
                             )
-                    )
-
-                    TextButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(12.dp)
-                    ) {
-                        Text(
-                            text = "← Volver",
-                            color = TextPrimary,
-                            fontSize = 14.sp
                         )
-                    }
+                    )
+            ) {
+
+                TextButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "← Volver",
+                        color = TextPrimary,
+                        fontSize = 14.sp
+                    )
                 }
+            }
 
             // FOTO DE PERFIL CENTRADA DEBAJO DEL BANNER
 
@@ -127,6 +134,53 @@ fun ArtistDetailScreen(
                 Column(
                     modifier = Modifier.padding(horizontal = 22.dp)
                 ) {
+
+                // CANCIONES DEL ARTISTA
+                Text(
+                    text = "CANCIONES",
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (artistTracks.isEmpty()) {
+                    Text(
+                        text = "No hay canciones disponibles.",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    artistTracks.take(10).forEach { track ->
+                        SongItem(
+                            title = track.title,
+                            artist = track.artist,
+                            symbol = "♫",
+                            format = track.audioFormat
+                        )
+                    }
+                }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (artistTracks.size > 10) {
+
+                        TextButton(
+                            onClick = onViewMore,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Ver más",
+                                color = Accent,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
                 // ÁLBUMES PROPIOS
 
                 Text(

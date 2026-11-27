@@ -6,9 +6,11 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         AudioEntity::class,
-        FavoriteEntity::class
+        FavoriteEntity::class,
+        PlayStatsEntity::class,
+        DailyPlayStatsEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -16,4 +18,8 @@ abstract class MusicDatabase : RoomDatabase() {
     abstract fun audioDao(): AudioDao
 
     abstract fun favoriteDao(): FavoriteDao
+
+    abstract fun playStatsDao(): PlayStatsDao
+
+    abstract fun dailyPlayStatsDao(): DailyPlayStatsDao
 }
