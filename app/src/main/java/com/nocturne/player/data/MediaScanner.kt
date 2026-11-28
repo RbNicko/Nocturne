@@ -2,16 +2,32 @@ package com.nocturne.player.data
 
 import android.content.ContentUris
 import android.content.Context
+import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 
 suspend fun loadAudioTracks(
-    context: Context
+    context: Context,
+    // Rutas relativas (con "/" al final) cuyas canciones se omiten.
+    excludedFolders: Set<String> = emptySet()
 ): List<AudioTrack> = withContext(Dispatchers.IO) {
 
     val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+
+    // Android 10 o superior entrega la carpeta ya lista (RELATIVE_PATH).
+    // En versiones anteriores hay que sacarla de la ruta completa (DATA).
+    val usesRelativePath = Build.VERSION.SDK_INT >= 29
+
+    val pathColumnName = if (usesRelativePath) {
+        MediaStore.MediaColumns.RELATIVE_PATH
+    } else {
+        MediaStore.MediaColumns.DATA
+    }
+
+    val storageRoot = Environment.getExternalStorageDirectory().absolutePath + "/"
 
     val projection = arrayOf(
         MediaStore.Audio.Media._ID,
@@ -23,7 +39,8 @@ suspend fun loadAudioTracks(
         MediaStore.Audio.Media.YEAR,
         MediaStore.Audio.Media.COMPOSER,
         MediaStore.Audio.Media.TRACK,
-        MediaStore.MediaColumns.MIME_TYPE
+        MediaStore.MediaColumns.MIME_TYPE,
+        pathColumnName
     )
 
     val sortOrder =
@@ -79,7 +96,27 @@ suspend fun loadAudioTracks(
             MediaStore.MediaColumns.MIME_TYPE
         )
 
+        val pathColumn = cursor.getColumnIndexOrThrow(pathColumnName)
+
         while (cursor.moveToNext()) {
+
+            // Carpeta de la canción, relativa al almacenamiento.
+            val rawPath = cursor.getString(pathColumn).orEmpty()
+
+            val relativePath = if (usesRelativePath) {
+                rawPath
+            } else {
+                rawPath
+                    .removePrefix(storageRoot)
+                    .substringBeforeLast('/', "") + "/"
+            }
+
+            if (excludedFolders.any {
+                    relativePath.startsWith(it, ignoreCase = true)
+                }
+            ) {
+                continue
+            }
 
             val id = cursor.getLong(idColumn)
 

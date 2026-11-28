@@ -1,287 +1,126 @@
 package com.nocturne.player
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.activity.compose.BackHandler
-import com.nocturne.player.data.AudioTrack
-import com.nocturne.player.data.ArtistInfo
-import com.nocturne.player.data.AlbumInfo
-import com.nocturne.player.data.AudioRepository
-import com.nocturne.player.data.FavoriteEntity
-import com.nocturne.player.data.RankedTrack
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.sp
-import com.nocturne.player.ui.theme.*
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.nocturne.player.ui.components.NavCapsule
+import com.nocturne.player.ui.components.rememberCapsuleScrollState
+import com.nocturne.player.ui.screens.AlbumDetailScreen
+import com.nocturne.player.ui.screens.ExcludedFoldersScreen
+import com.nocturne.player.ui.screens.ArtistDetailScreen
+import com.nocturne.player.ui.screens.ArtistSongsScreen
 import com.nocturne.player.ui.screens.HomeScreen
 import com.nocturne.player.ui.screens.LibraryScreen
+import com.nocturne.player.ui.screens.PlayerScreen
 import com.nocturne.player.ui.screens.SettingsScreen
-import com.nocturne.player.ui.screens.ArtistDetailScreen
-import com.nocturne.player.ui.screens.AlbumDetailScreen
-import com.nocturne.player.ui.screens.ArtistSongsScreen
-import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.collect
+import com.nocturne.player.ui.theme.*
 
 
 class MainActivity : ComponentActivity() {
+
+    private val viewModel: NocturneViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // La app dibuja detrás de las barras del sistema (necesario para que
+        // la pantalla de reproducción ocupe toda la pantalla).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.dark(
+                android.graphics.Color.TRANSPARENT
+            )
+        )
+
         setContent {
-            NocturneApp()
+            NocturneApp(viewModel)
         }
     }
 }
 
 
 @Composable
-fun NocturneApp() {
-
-    var selectedTab by remember { mutableStateOf(0) }
-    var searchText by remember { mutableStateOf("") }
-
-    var selectedLibrarySection by remember {
-        mutableStateOf(0)
-    }
+fun NocturneApp(vm: NocturneViewModel) {
 
     val libraryListState = rememberLazyListState()
 
-    var selectedArtist by remember {
-    mutableStateOf<ArtistInfo?>(null)
+    // Controla cuánto está oculta la cápsula de navegación según el scroll.
+    val capsuleState = rememberCapsuleScrollState()
+
+    val favoriteTracks by vm.favoriteTracks.collectAsState()
+    val favoriteAlbums by vm.favoriteAlbums.collectAsState()
+    val playback by vm.playbackState.collectAsState()
+
+    // Copias locales para que Kotlin pueda comprobar que no son nulas.
+    val selectedArtist = vm.selectedArtist
+    val selectedAlbum = vm.selectedAlbum
+
+    // Canción que está sonando, su calidad de audio y si es favorita.
+    val currentTrack = remember(playback.mediaId, vm.tracks) {
+        vm.tracks.firstOrNull { it.id.toString() == playback.mediaId }
     }
 
-    var selectedAlbum by remember {
-    mutableStateOf<AlbumInfo?>(null)
+    val qualityLabel = currentTrack
+        ?.let { listOfNotNull(it.audioQuality, it.audioFormat) }
+        ?.joinToString(" • ")
+        ?.takeIf { it.isNotBlank() }
+
+    val currentIsFavorite = favoriteTracks.any {
+        it.itemId == playback.mediaId
     }
-
-    var showArtistSongs by remember {
-    mutableStateOf(false)
-    }
-
-    val context = LocalContext.current
-
-    var playbackConnected by remember {
-        mutableStateOf(false)
-    }
-
-    var pendingPlayback by remember {
-        mutableStateOf<(() -> Unit)?>(null)
-    }
-
-    val playbackController = remember(context) {
-        PlaybackController(context.applicationContext) {
-            playbackConnected = true
-
-            pendingPlayback?.invoke()
-            pendingPlayback = null
-        }
-    }
-
-    DisposableEffect(playbackController) {
-        onDispose {
-            playbackController.release()
-        }
-    }
-
-    val audioRepository = remember(context) {
-        AudioRepository(context.applicationContext)
-    }
-
-    // ESTADO DEL TOP 15
-
-    var selectedTopPeriod by remember {
-        mutableIntStateOf(0)
-    }
-
-    var topTracks by remember {
-        mutableStateOf<List<RankedTrack>>(emptyList())
-    }
-
-    var isTopLoading by remember {
-        mutableStateOf(false)
-    }
-
-    val favoriteAlbums by audioRepository
-        .observeFavoritesByType("album")
-        .collectAsState(initial = emptyList())
-
-        val favoriteTracks by audioRepository
-        .observeFavoritesByType("track")
-        .collectAsState(initial = emptyList())
-
-    val coroutineScope = rememberCoroutineScope()
-
-    fun playAlbum(shuffle: Boolean) {
-    val album = selectedAlbum ?: return
-
-    val request: () -> Unit = {
-        coroutineScope.launch {
-            val albumTracks = audioRepository.getTracksByAlbum(
-                albumName = album.title,
-                artistName = album.artist
-            )
-
-            if (albumTracks.isNotEmpty()) {
-                playbackController.playTracks(
-                    tracks = albumTracks,
-                    startIndex = 0,
-                    shuffle = shuffle
-                )
-            }
-        }
-    }
-
-    if (playbackConnected) {
-        request()
-    } else {
-        pendingPlayback = request
-    }
-}
-
-    var tracks by remember {
-        mutableStateOf<List<AudioTrack>>(emptyList())
-    }
-
-    var artists by remember {
-        mutableStateOf<List<ArtistInfo>>(emptyList())
-    }
-
-    var albums by remember {
-        mutableStateOf<List<AlbumInfo>>(emptyList())
-    }
-
-    var isLoading by remember {
-        mutableStateOf(false)
-    }
-
-    var hasLoadedLibrary by remember {
-        mutableStateOf(false)
-    }
-
-    var hasPermission by remember {
-        mutableStateOf(
-            context.checkSelfPermission(
-                if (Build.VERSION.SDK_INT >= 33)
-                    Manifest.permission.READ_MEDIA_AUDIO
-                else
-                    Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
-        )
-    }
-
-    val audioPermission =
-        if (Build.VERSION.SDK_INT >= 33)
-            Manifest.permission.READ_MEDIA_AUDIO
-        else
-            Manifest.permission.READ_EXTERNAL_STORAGE
 
     val permissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
-            hasPermission = granted
+            vm.onPermissionResult(granted)
         }
 
-    // CARGA DEL TOP 15
-
-    LaunchedEffect(selectedTab, selectedTopPeriod) {
-
-        if (selectedTab == 0) {
-
-            isTopLoading = true
-
-            try {
-                topTracks = when (selectedTopPeriod) {
-                    0 -> audioRepository.getTopDailyTracks()
-                    1 -> audioRepository.getTopWeeklyTracks()
-                    2 -> audioRepository.getTopMonthlyTracks()
-                    3 -> audioRepository.getTopYearlyTracks()
-                    else -> audioRepository.getTopAllTimeTracks()
-                }
-            } finally {
-                isTopLoading = false
-            }
-        }
+    BackHandler(enabled = vm.canGoBack) {
+        vm.goBack()
     }
 
-    // CARGA DE BIBLIOTECA
-
-    LaunchedEffect(selectedTab, hasPermission, hasLoadedLibrary) {
-        if (selectedTab == 1 && hasPermission && !hasLoadedLibrary) {
-
-            isLoading = true
-
-            try {
-                val savedTracks = audioRepository.getSavedTracks()
-
-                tracks = if (savedTracks.isNotEmpty()) {
-                    savedTracks
-                } else {
-                    audioRepository.scanAndSaveTracks(context)
-                }
-
-                artists = audioRepository.getArtists()
-                albums = audioRepository.getAlbums()
-
-                hasLoadedLibrary = true
-
-            } finally {
-                isLoading = false
-            }
-        }
+    // Al cambiar de pantalla, la cápsula vuelve a mostrarse.
+    LaunchedEffect(
+        vm.selectedTab,
+        selectedArtist,
+        selectedAlbum,
+        vm.showArtistSongs,
+        vm.showExcludedFolders,
+        vm.showPlayer
+    ) {
+        capsuleState.show()
     }
 
-        BackHandler(
-            enabled = selectedAlbum != null ||
-                    showArtistSongs ||
-                    selectedArtist != null ||
-                    selectedTab != 0
-        ) {
-            when {
-                selectedAlbum != null -> {
-                    selectedAlbum = null
-                }
-
-                showArtistSongs && selectedArtist != null -> {
-                    showArtistSongs = false
-                }
-
-                selectedArtist != null -> {
-                    selectedArtist = null
-                    showArtistSongs = false
-                }
-
-                selectedTab != 0 -> {
-                    selectedTab = 0
-                }
-            }
-        }
     MaterialTheme(
         colorScheme = darkColorScheme(
             background = Background,
@@ -292,261 +131,175 @@ fun NocturneApp() {
         )
     ) {
 
-Scaffold(
-    containerColor = Background
-) { padding ->
-
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
-
-        // CONTENIDO DE LAS PANTALLAS
-
-            if (selectedAlbum != null) {
-
-                AlbumDetailScreen(
-                    album = selectedAlbum!!,
-                    onBack = {
-                        selectedAlbum = null
-                    },
-                    onShuffle = {
-                        playAlbum(shuffle = true)
-                    },
-                    onPlay = {
-                        playAlbum(shuffle = false)
-                    },
-                    onFavorite = {
-                        selectedAlbum?.let { album ->
-
-                            val albumId =
-                                "album:${album.artist.trim().lowercase()}|${album.title.trim().lowercase()}"
-
-                            val alreadyFavorite = favoriteAlbums.any {
-                                it.itemId == albumId
-                            }
-
-                            coroutineScope.launch {
-                                if (alreadyFavorite) {
-                                    audioRepository.removeFavorite(
-                                        type = "album",
-                                        itemId = albumId
-                                    )
-                                } else {
-                                    audioRepository.addFavorite(
-                                        FavoriteEntity(
-                                            type = "album",
-                                            itemId = albumId,
-                                            title = album.title,
-                                            artist = album.artist
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    isFavorite = favoriteAlbums.any {
-                        it.itemId ==
-                            "album:${selectedAlbum!!.artist.trim().lowercase()}|${selectedAlbum!!.title.trim().lowercase()}"
-                    },
-                )
-
-            } else if (selectedArtist != null && showArtistSongs) {
-
-                ArtistSongsScreen(
-                    artist = selectedArtist!!,
-                    tracks = tracks,
-                    onBack = {
-                        showArtistSongs = false
-                    },
-                    modifier = Modifier.padding(padding)
-                )
-
-            } else if (selectedArtist != null) {
-
-                ArtistDetailScreen(
-                    artist = selectedArtist!!,
-                    tracks = tracks,
-                    onBack = {
-                        selectedArtist = null
-                        showArtistSongs = false
-                    },
-                    onViewMore = {
-                        showArtistSongs = true
-                    },
-                    modifier = Modifier.padding(padding)
-                )
-
-            } else {
-
-            when (selectedTab) {
-
-                // INICIO
-
-                0 -> HomeScreen(
-                    topTracks = topTracks,
-                    selectedTopPeriod = selectedTopPeriod,
-                    onTopPeriodChange = { selectedTopPeriod = it },
-                    isTopLoading = isTopLoading,
-                    modifier = Modifier.padding(padding)
-                )
-
-                // BIBLIOTECA
-
-                1 -> LibraryScreen(
-                    tracks = tracks,
-                    listState = libraryListState,
-                    artists = artists,
-                    albums = albums,
-
-                    favoriteTracks = favoriteTracks,
-
-                    onTrackFavoriteClick = { track ->
-                        val trackId = track.id.toString()
-
-                        val alreadyFavorite = favoriteTracks.any {
-                            it.itemId == trackId
-                        }
-
-                        coroutineScope.launch {
-                            if (alreadyFavorite) {
-                                audioRepository.removeFavorite("track", trackId)
-                            } else {
-                                audioRepository.addFavorite(
-                                    FavoriteEntity(
-                                        type = "track",
-                                        itemId = trackId,
-                                        title = track.title,
-                                        artist = track.artist
-                                    )
-                                )
-                            }
-                        }
-                    },
-
-                    onArtistClick = { artist ->
-                        showArtistSongs = false
-                        selectedArtist = artist
-                    },
-
-                    onAlbumClick = { album ->
-                        selectedAlbum = album
-                    },
-                    isLoading = isLoading,
-                    hasPermission = hasPermission,
-                    searchText = searchText,
-                    onSearchTextChange = {
-                        searchText = it
-                    },
-                    selectedLibrarySection = selectedLibrarySection,
-                    onLibrarySectionChange = {
-                        selectedLibrarySection = it
-                    },
-                    onRequestPermission = {
-                        permissionLauncher.launch(audioPermission)
-                    },
-                    onRefreshLibrary = {
-                        coroutineScope.launch {
-                            isLoading = true
-
-                            try {
-                                tracks = audioRepository.scanAndSaveTracks(context)
-                                artists = audioRepository.getArtists()
-                                albums = audioRepository.getAlbums()
-                            } finally {
-                                isLoading = false
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(padding)
-                )
-                // AJUSTES
-
-                2 -> SettingsScreen(
-                    modifier = Modifier.padding(padding)
-                )
-            }
-        }
-
-        // CÁPSULA FLOTANTE
-
-            if (
-                selectedArtist == null &&
-                selectedAlbum == null &&
-                !showArtistSongs
-            ) {
+        Scaffold(
+            containerColor = Background
+        ) { padding ->
 
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(
-                        top = 8.dp,
-                        bottom = 14.dp
-                    ),
-                contentAlignment = Alignment.Center
+                    .fillMaxSize()
+                    .nestedScroll(capsuleState.connection)
             ) {
 
-                Row(
-                    modifier = Modifier
-                        .shadow(
-                            elevation = 12.dp,
-                            shape = CircleShape
-                        )
-                        .clip(CircleShape)
-                        .background(SurfaceDark)
-                        .padding(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
+                // CONTENIDO DE LAS PANTALLAS
 
-                    val tabs = listOf(
-                        "⌂",
-                        "♫",
-                        "⚙"
+                if (selectedAlbum != null) {
+
+                    AlbumDetailScreen(
+                        album = selectedAlbum,
+                        onBack = { vm.closeAlbum() },
+                        onShuffle = { vm.playSelectedAlbum(shuffle = true) },
+                        onPlay = { vm.playSelectedAlbum(shuffle = false) },
+                        onFavorite = { vm.toggleAlbumFavorite(selectedAlbum) },
+                        isFavorite = favoriteAlbums.any {
+                            it.itemId == vm.albumFavoriteId(selectedAlbum)
+                        },
+                        modifier = Modifier.statusBarsPadding()
                     )
 
-                    tabs.forEachIndexed { index, icon ->
+                } else if (selectedArtist != null && vm.showArtistSongs) {
 
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (selectedTab == index) {
-                                        Color(0xFF292034)
-                                    } else {
-                                        Color.Transparent
-                                    }
-                                )
-                                .clickable {
+                    ArtistSongsScreen(
+                        artist = selectedArtist,
+                        tracks = vm.tracks,
+                        onBack = { vm.closeArtistSongs() },
+                        modifier = Modifier.padding(padding)
+                    )
 
-                                    selectedTab = index
+                } else if (selectedArtist != null) {
 
-                                    if (
-                                        index == 1 &&
-                                        !hasPermission
-                                    ) {
-                                        permissionLauncher.launch(
-                                            audioPermission
-                                        )
-                                    }
+                    ArtistDetailScreen(
+                        artist = selectedArtist,
+                        tracks = vm.tracks,
+                        onBack = { vm.closeArtist() },
+                        onViewMore = { vm.openArtistSongs() },
+                        modifier = Modifier.padding(padding)
+                    )
+
+                } else {
+
+                    when (vm.selectedTab) {
+
+                        // INICIO
+
+                        0 -> HomeScreen(
+                            topTracks = vm.topTracks,
+                            selectedTopPeriod = vm.selectedTopPeriod,
+                            onTopPeriodChange = { vm.selectTopPeriod(it) },
+                            isTopLoading = vm.isTopLoading,
+                            modifier = Modifier.padding(padding)
+                        )
+
+                        // BIBLIOTECA
+
+                        1 -> LibraryScreen(
+                            tracks = vm.tracks,
+                            listState = libraryListState,
+                            artists = vm.artists,
+                            albums = vm.albums,
+                            favoriteTracks = favoriteTracks,
+                            onTrackFavoriteClick = { track ->
+                                vm.toggleTrackFavorite(track)
+                            },
+                            onTrackClick = { list, index ->
+                                vm.playTracks(list, index)
+                            },
+                            onArtistClick = { artist ->
+                                vm.openArtist(artist)
+                            },
+                            onAlbumClick = { album ->
+                                vm.openAlbum(album)
+                            },
+                            isLoading = vm.isLoading,
+                            hasPermission = vm.hasPermission,
+                            searchText = vm.searchText,
+                            onSearchTextChange = { vm.updateSearchText(it) },
+                            selectedLibrarySection = vm.selectedLibrarySection,
+                            onLibrarySectionChange = {
+                                vm.selectLibrarySection(it)
+                            },
+                            onRequestPermission = {
+                                permissionLauncher.launch(vm.audioPermission)
+                            },
+                            onRefreshLibrary = { vm.refreshLibrary() },
+                            modifier = Modifier.padding(padding)
+                        )
+
+                        // AJUSTES
+
+                        2 -> if (vm.showExcludedFolders) {
+
+                            ExcludedFoldersScreen(
+                                folders = vm.excludedFolders.sorted(),
+                                onBack = { vm.closeExcludedFolders() },
+                                onFolderPicked = { uri ->
+                                    vm.addExcludedFolder(uri)
                                 },
-                            contentAlignment = Alignment.Center
-                        ) {
-
-                            Text(
-                                text = icon,
-                                fontSize = 23.sp,
-                                color = if (
-                                    selectedTab == index
-                                ) Accent else TextSecondary
+                                onRemoveFolder = { folder ->
+                                    vm.removeExcludedFolder(folder)
+                                },
+                                modifier = Modifier.padding(padding)
                             )
-                            }
+
+                        } else {
+
+                            SettingsScreen(
+                                excludedFoldersCount = vm.excludedFolders.size,
+                                onOpenExcludedFolders = {
+                                    vm.openExcludedFolders()
+                                },
+                                modifier = Modifier.padding(padding)
+                            )
                         }
                     }
                 }
-          }
-        }
-    }
 
+                // CÁPSULA FLOTANTE (se oculta mientras está abierto el reproductor)
+
+                if (!vm.showPlayer) {
+
+                    NavCapsule(
+                        selectedTab = vm.selectedTab,
+                        onTabClick = { index ->
+                            vm.selectTab(index)
+
+                            if (index == 1 && !vm.hasPermission) {
+                                permissionLauncher.launch(vm.audioPermission)
+                            }
+                        },
+                        scrollState = capsuleState,
+                        playback = playback,
+                        positionMs = { vm.positionMs },
+                        onTogglePlayPause = { vm.togglePlayPause() },
+                        onOpenPlayer = { vm.openPlayer() },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
+
+                // PANTALLA DE REPRODUCCIÓN
+
+                AnimatedVisibility(
+                    visible = vm.showPlayer,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                ) {
+
+                    PlayerScreen(
+                        playback = playback,
+                        positionMs = { vm.positionMs },
+                        qualityLabel = qualityLabel,
+                        isFavorite = currentIsFavorite,
+                        onClose = { vm.closePlayer() },
+                        onTogglePlayPause = { vm.togglePlayPause() },
+                        onNext = { vm.nextTrack() },
+                        onPrevious = { vm.previousTrack() },
+                        onSeek = { vm.seekTo(it) },
+                        onToggleShuffle = { vm.toggleShuffle() },
+                        onCycleRepeat = { vm.cycleRepeatMode() },
+                        onToggleFavorite = { vm.toggleCurrentTrackFavorite() }
+                    )
+                }
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,9 +37,11 @@ fun ArtistSongsScreen(
     modifier: Modifier = Modifier
 ) {
 
-    val artistTracks = tracks.filter {
-        LibraryOrganizer.getMainArtist(it)
-            .equals(artist.name, ignoreCase = true)
+    val artistTracks = remember(tracks, artist) {
+        tracks.filter {
+            LibraryOrganizer.getMainArtist(it)
+                .equals(artist.name, ignoreCase = true)
+        }
     }
 
     var sortMode by remember {
@@ -49,15 +52,17 @@ fun ArtistSongsScreen(
     mutableStateOf(false)
     }
 
-    val sortedTracks = when (sortMode) {
-        SongSortMode.ALPHABETICAL ->
-            artistTracks.sortedBy { it.title.lowercase() }
+    val sortedTracks = remember(artistTracks, sortMode) {
+        when (sortMode) {
+            SongSortMode.ALPHABETICAL ->
+                artistTracks.sortedBy { it.title.lowercase() }
 
-        SongSortMode.LOCAL_TOP ->
-            artistTracks
+            SongSortMode.LOCAL_TOP ->
+                artistTracks
 
-        SongSortMode.WORLDWIDE_TOP ->
-            artistTracks
+            SongSortMode.WORLDWIDE_TOP ->
+                artistTracks
+        }
     }
 
     Column(
@@ -73,11 +78,11 @@ fun ArtistSongsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            TextButton(onClick = onBack) {
-                Text(
-                    text = "← Volver",
-                    color = TextPrimary,
-                    fontSize = 14.sp
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Volver",
+                    tint = TextPrimary
                 )
             }
 

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -63,16 +64,16 @@ fun AlbumDetailScreen(
                     )
                 ) {
 
-                    TextButton(
+                    IconButton(
                         onClick = onBack,
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(12.dp)
                     ) {
-                        Text(
-                            text = "← Volver",
-                            color = TextPrimary,
-                            fontSize = 14.sp
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver",
+                            tint = TextPrimary
                         )
                     }
                 }

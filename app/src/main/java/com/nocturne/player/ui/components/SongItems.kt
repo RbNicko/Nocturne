@@ -11,7 +11,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +27,7 @@ fun SongItem(
     title: String,
     artist: String,
     symbol: String,
+    artworkUri: Uri? = null,
     onClick: () -> Unit = {},
     format: String? = null,
     isFavorite: Boolean? = null,
@@ -43,17 +46,29 @@ fun SongItem(
         Box(
             modifier = Modifier
                 .size(54.dp)
-                .background(
-                    SurfaceDark,
-                    RoundedCornerShape(13.dp)
-                ),
+                .clip(RoundedCornerShape(13.dp))
+                .background(SurfaceDark),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = symbol,
-                color = Accent,
-                fontSize = 25.sp
-            )
+
+            // El símbolo se muestra si no hay portada o mientras carga.
+            val symbolText: @Composable () -> Unit = {
+                Text(
+                    text = symbol,
+                    color = Accent,
+                    fontSize = 25.sp
+                )
+            }
+
+            if (artworkUri != null) {
+                AlbumArt(
+                    artworkUri = artworkUri,
+                    modifier = Modifier.fillMaxSize(),
+                    placeholder = symbolText
+                )
+            } else {
+                symbolText()
+            }
         }
 
         Spacer(modifier = Modifier.width(14.dp))

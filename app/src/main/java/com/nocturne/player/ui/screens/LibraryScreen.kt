@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -26,6 +28,7 @@ fun LibraryScreen(
     albums: List<AlbumInfo>,
     favoriteTracks: List<FavoriteEntity>,
     onTrackFavoriteClick: (AudioTrack) -> Unit,
+    onTrackClick: (List<AudioTrack>, Int) -> Unit,
     isLoading: Boolean,
     hasPermission: Boolean,
     searchText: String,
@@ -41,6 +44,12 @@ fun LibraryScreen(
 ) {
 
     val normalizedSearch = searchText.trim()
+
+    // Se calcula una sola vez por cambio de favoritos (antes se recorría
+    // la lista completa de favoritos por cada fila).
+    val favoriteTrackIds = remember(favoriteTracks) {
+        favoriteTracks.mapTo(HashSet()) { it.itemId }
+    }
 
     val libraryTracks = remember(
         tracks,
@@ -129,13 +138,18 @@ fun LibraryScreen(
                     fontSize = 12.sp
                 )
 
-                TextButton(
+                IconButton(
                     onClick = onRefreshLibrary,
                     enabled = !isLoading && hasPermission
                 ) {
-                    Text(
-                        text = "↻ Actualizar",
-                        color = Accent
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = "Actualizar biblioteca",
+                        tint = if (!isLoading && hasPermission) {
+                            Accent
+                        } else {
+                            TextSecondary
+                        }
                     )
                 }
             }
@@ -283,10 +297,15 @@ fun LibraryScreen(
                                     title = track.title,
                                     artist = track.artist,
                                     symbol = "♫",
-                                    format = track.audioFormat,
-                                    isFavorite = favoriteTracks.any {
-                                        it.itemId == track.id.toString()
+                                    artworkUri = track.uri,
+                                    onClick = {
+                                        onTrackClick(
+                                            libraryTracks,
+                                            libraryTracks.indexOf(track)
+                                        )
                                     },
+                                    format = track.audioFormat,
+                                    isFavorite = track.id.toString() in favoriteTrackIds,
                                     onFavoriteClick = {
                                         onTrackFavoriteClick(track)
                                     }
@@ -370,6 +389,7 @@ fun LibraryScreen(
                                     title = album.title,
                                     artist = albumSubtitle,
                                     symbol = "▣",
+                                    artworkUri = album.tracks.firstOrNull()?.uri,
                                     onClick = {
                                         onAlbumClick(album)
                                     }

@@ -12,7 +12,9 @@ object DatabaseProvider {
 
         return INSTANCE ?: synchronized(this) {
 
-            val instance = Room.databaseBuilder(
+            // Se vuelve a comprobar dentro del bloque: otro hilo pudo haber
+            // creado la base de datos mientras este esperaba.
+            INSTANCE ?: Room.databaseBuilder(
                 context.applicationContext,
                 MusicDatabase::class.java,
                 "nocturne_database"
@@ -25,10 +27,7 @@ object DatabaseProvider {
                     MIGRATION_5_6
                 )
                 .build()
-
-            INSTANCE = instance
-
-            instance
+                .also { INSTANCE = it }
         }
     }
 }

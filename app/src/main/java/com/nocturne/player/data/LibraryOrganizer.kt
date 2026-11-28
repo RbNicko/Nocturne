@@ -31,22 +31,38 @@ object LibraryOrganizer {
             featuringSeparator
         }
 
+        // Se calcula una sola vez (antes se recalculaba por cada elemento).
+        val mainArtist = getMainArtist(track)
+
         return separator
             .split(track.artist)
             .map { it.trim() }
             .filter { it.isNotBlank() }
-            .filterNot {
-                it.equals(
-                    getMainArtist(track),
-                    ignoreCase = true
-                )
-            }
+            .filterNot { it.equals(mainArtist, ignoreCase = true) }
             .distinctBy { it.lowercase() }
     }
 
-    fun getArtists(tracks: List<AudioTrack>): List<ArtistInfo> {
+    // Versión corta: calcula los álbumes por su cuenta.
+    fun getArtists(tracks: List<AudioTrack>): List<ArtistInfo> =
+        getArtists(tracks, getAlbums(tracks))
 
-        val albums = getAlbums(tracks)
+    // Versión que reutiliza los álbumes ya calculados.
+    fun getArtists(
+        tracks: List<AudioTrack>,
+        albums: List<AlbumInfo>
+    ): List<ArtistInfo> {
+
+        // Artistas invitados de cada álbum (en minúsculas), calculados una
+        // sola vez. Antes se repetía el trabajo de separar nombres con
+        // expresiones regulares por cada combinación artista × álbum.
+        val featuredByAlbum: List<Set<String>> = albums.map { album ->
+            album.tracks
+                .flatMap { getFeaturedArtists(it) }
+                .map { it.lowercase() }
+                .toSet()
+        }
+
+        val ownAlbumsByArtist = albums.groupBy { it.artist.lowercase() }
 
         val mainArtists = tracks.groupBy {
             getMainArtist(it)
@@ -54,19 +70,15 @@ object LibraryOrganizer {
 
         return mainArtists.map { (artistName, artistTracks) ->
 
-            val ownAlbums = albums.filter {
-                it.artist.equals(artistName, ignoreCase = true)
-            }
+            val key = artistName.lowercase()
 
-            val featuredAlbums = albums.filter { album ->
+            val ownAlbums = ownAlbumsByArtist[key].orEmpty()
+
+            val featuredAlbums = albums.filterIndexed { index, album ->
                 !album.artist.equals(
                     artistName,
                     ignoreCase = true
-                ) && album.tracks.any { track ->
-                    getFeaturedArtists(track).any {
-                        it.equals(artistName, ignoreCase = true)
-                    }
-                }
+                ) && key in featuredByAlbum[index]
             }
 
             ArtistInfo(

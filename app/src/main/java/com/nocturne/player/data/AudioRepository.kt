@@ -258,10 +258,13 @@ suspend fun registerPlay(trackId: Long) =
     
         }
 
-    suspend fun scanAndSaveTracks(context: Context): List<AudioTrack> =
+    suspend fun scanAndSaveTracks(
+        context: Context,
+        excludedFolders: Set<String> = emptySet()
+    ): List<AudioTrack> =
         withContext(Dispatchers.IO) {
 
-            val scannedTracks = loadAudioTracks(context)
+            val scannedTracks = loadAudioTracks(context, excludedFolders)
 
             val entities = scannedTracks.map { track ->
                 AudioEntity(

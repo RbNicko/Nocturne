@@ -66,4 +66,7 @@ dependencies {
 
     // Sesión multimedia y reproducción en segundo plano
     implementation("androidx.media3:media3-session:1.11.1")
+
+    // Color dominante de las portadas
+    implementation("androidx.palette:palette:1.0.0")
 }
